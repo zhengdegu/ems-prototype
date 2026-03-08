@@ -1,0 +1,2189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS 设备管理系统 - 高保真原型</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50:'#e6f4ff',100:'#bae0ff',200:'#91caff',300:'#69b1ff',400:'#4096ff',500:'#1890FF',600:'#0958d9',700:'#003eb3',800:'#002c8c',900:'#001d66' },
+                        success: { 50:'#f6ffed',500:'#52c41a',600:'#389e0d' },
+                        warning: { 50:'#fffbe6',500:'#faad14',600:'#d48806' },
+                        danger:  { 50:'#fff2f0',500:'#ff4d4f',600:'#cf1322' },
+                        info:    { 50:'#e6f7ff',500:'#1890ff',600:'#096dd9' },
+                        gray:    { 25:'#fafafa',50:'#f5f5f5',100:'#f0f0f0',200:'#d9d9d9',300:'#bfbfbf',400:'#8c8c8c',500:'#595959',600:'#434343',700:'#262626',800:'#1f1f1f',900:'#141414' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #262626; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        /* Sidebar */
+        .sidebar { width: 240px; transition: width 0.3s ease; }
+        .sidebar.collapsed { width: 64px; }
+        .sidebar.collapsed .menu-text, .sidebar.collapsed .logo-text, .sidebar.collapsed .menu-group-title { display: none; }
+        .sidebar.collapsed .menu-item { justify-content: center; padding-left: 0; padding-right: 0; }
+        .sidebar.collapsed .menu-item i { margin-right: 0; }
+        /* Menu */
+        .menu-item { display: flex; align-items: center; padding: 10px 16px 10px 24px; color: rgba(255,255,255,0.65); cursor: pointer; transition: all 0.2s; border-radius: 0 20px 20px 0; margin-right: 12px; font-size: 14px; white-space: nowrap; }
+        .menu-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .menu-item.active { color: #fff; background: #1890FF; }
+        .menu-item i { width: 20px; text-align: center; margin-right: 10px; font-size: 15px; }
+        .menu-group-title { padding: 16px 24px 8px; font-size: 12px; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.5px; }
+        /* Cards */
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        /* Table */
+        .data-table th { background: #fafafa; font-weight: 600; font-size: 13px; color: #595959; }
+        .data-table td { font-size: 13px; }
+        .data-table tr:hover td { background: #e6f4ff; }
+        /* Badge */
+        .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+        /* Transition */
+        .page-transition { animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        /* Toast */
+        .toast { animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        /* Modal overlay */
+        .modal-overlay { background: rgba(0,0,0,0.45); }
+        /* Pulse dot */
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        /* Tag */
+        .tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body x-data="app()" x-cloak>
+
+<!-- ==================== 登录页面 ==================== -->
+<div x-show="currentPage === 'login'" class="min-h-screen flex" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <!-- 左侧品牌区 -->
+    <div class="hidden lg:flex lg:w-1/2 flex-col justify-center items-center text-white p-12">
+        <div class="max-w-md">
+            <div class="flex items-center mb-8">
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                    <i class="fas fa-cogs text-2xl"></i>
+                </div>
+                <span class="text-3xl font-bold">EMS Pro</span>
+            </div>
+            <h1 class="text-4xl font-bold mb-4">企业级设备管理系统</h1>
+            <p class="text-lg text-white/80 mb-8">智能化设备全生命周期管理平台，助力企业数字化转型</p>
+            <div class="space-y-4">
+                <div class="flex items-center"><i class="fas fa-check-circle mr-3 text-green-300"></i><span>实时设备监控与预警</span></div>
+                <div class="flex items-center"><i class="fas fa-check-circle mr-3 text-green-300"></i><span>智能维护计划管理</span></div>
+                <div class="flex items-center"><i class="fas fa-check-circle mr-3 text-green-300"></i><span>多维度数据报表分析</span></div>
+                <div class="flex items-center"><i class="fas fa-check-circle mr-3 text-green-300"></i><span>灵活的权限控制体系</span></div>
+            </div>
+        </div>
+    </div>
+    <!-- 右侧登录表单 -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div class="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="lg:hidden flex items-center justify-center mb-4">
+                    <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-cogs text-white text-lg"></i>
+                    </div>
+                    <span class="text-2xl font-bold text-gray-700">EMS Pro</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-700">欢迎回来</h2>
+                <p class="text-gray-400 mt-2">请登录您的账户</p>
+            </div>
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 mb-1.5">用户名 / 邮箱</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                        <input type="text" placeholder="请输入用户名或邮箱" value="admin@emspro.com" class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-500 mb-1.5">密码</label>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"></i>
+                        <input type="password" placeholder="请输入密码" value="••••••••" class="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
+                        <i class="fas fa-eye-slash absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 cursor-pointer hover:text-gray-500"></i>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center text-sm text-gray-500 cursor-pointer">
+                        <input type="checkbox" checked class="mr-2 rounded border-gray-300 text-primary-500 focus:ring-primary-500">
+                        记住我
+                    </label>
+                    <a href="#" class="text-sm text-primary-500 hover:text-primary-600">忘记密码？</a>
+                </div>
+                <button @click="currentPage='dashboard'" class="w-full bg-primary-500 hover:bg-primary-600 text-white py-2.5 rounded-lg font-medium transition-colors text-sm">
+                    <i class="fas fa-sign-in-alt mr-2"></i>登 录
+                </button>
+                <div class="relative my-4">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-100"></div></div>
+                    <div class="relative flex justify-center text-xs"><span class="bg-white px-4 text-gray-400">其他登录方式</span></div>
+                </div>
+                <div class="flex justify-center space-x-6">
+                    <button class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-green-500 hover:border-green-500 transition-colors"><i class="fab fa-weixin text-lg"></i></button>
+                    <button class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-500 transition-colors"><i class="fas fa-comment-dots text-lg"></i></button>
+                    <button class="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-600 transition-colors"><i class="fas fa-phone text-lg"></i></button>
+                </div>
+            </div>
+            <p class="text-center text-xs text-gray-400 mt-6">还没有账户？<a href="#" class="text-primary-500 hover:text-primary-600">立即注册</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 主布局（登录后） ==================== -->
+<div x-show="currentPage !== 'login'" class="flex h-screen overflow-hidden">
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar bg-gray-900 flex flex-col flex-shrink-0 overflow-y-auto overflow-x-hidden" :class="{ 'collapsed': sidebarCollapsed }">
+        <!-- Logo -->
+        <div class="flex items-center h-16 px-4 flex-shrink-0 border-b border-white/10">
+            <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-cogs text-white text-sm"></i>
+            </div>
+            <span class="logo-text ml-3 text-white font-bold text-lg whitespace-nowrap">EMS Pro</span>
+        </div>
+        <!-- Menu -->
+        <nav class="flex-1 py-4">
+            <div class="menu-group-title">概览</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='dashboard' }" @click="navigate('dashboard')">
+                <i class="fas fa-tachometer-alt"></i><span class="menu-text">工作台</span>
+            </div>
+
+            <div class="menu-group-title">设备管理</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='equipment-list' }" @click="navigate('equipment-list')">
+                <i class="fas fa-server"></i><span class="menu-text">设备台账</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='equipment-detail' }" @click="navigate('equipment-detail')">
+                <i class="fas fa-microchip"></i><span class="menu-text">设备详情</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='equipment-form' }" @click="navigate('equipment-form')">
+                <i class="fas fa-plus-circle"></i><span class="menu-text">新增设备</span>
+            </div>
+
+            <div class="menu-group-title">维护管理</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='maintenance-plan' }" @click="navigate('maintenance-plan')">
+                <i class="fas fa-calendar-check"></i><span class="menu-text">维护计划</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='work-order' }" @click="navigate('work-order')">
+                <i class="fas fa-clipboard-list"></i><span class="menu-text">工单管理</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='work-order-detail' }" @click="navigate('work-order-detail')">
+                <i class="fas fa-file-alt"></i><span class="menu-text">工单详情</span>
+            </div>
+
+            <div class="menu-group-title">监控预警</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='alarm' }" @click="navigate('alarm')">
+                <i class="fas fa-bell"></i><span class="menu-text">告警中心</span>
+            </div>
+
+            <div class="menu-group-title">数据分析</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='report' }" @click="navigate('report')">
+                <i class="fas fa-chart-bar"></i><span class="menu-text">报表统计</span>
+            </div>
+
+            <div class="menu-group-title">系统管理</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='user-manage' }" @click="navigate('user-manage')">
+                <i class="fas fa-users"></i><span class="menu-text">用户管理</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='role-permission' }" @click="navigate('role-permission')">
+                <i class="fas fa-user-shield"></i><span class="menu-text">角色权限</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='system-settings' }" @click="navigate('system-settings')">
+                <i class="fas fa-cog"></i><span class="menu-text">系统设置</span>
+            </div>
+
+            <div class="menu-group-title">个人</div>
+            <div class="menu-item" :class="{ 'active': currentPage==='profile' }" @click="navigate('profile')">
+                <i class="fas fa-user-circle"></i><span class="menu-text">个人中心</span>
+            </div>
+            <div class="menu-item" :class="{ 'active': currentPage==='notification' }" @click="navigate('notification')">
+                <i class="fas fa-envelope"></i><span class="menu-text">消息通知</span>
+                <span class="menu-text ml-auto bg-danger-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">5</span>
+            </div>
+        </nav>
+        <!-- User -->
+        <div class="p-4 border-t border-white/10 flex items-center flex-shrink-0">
+            <div class="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">张</div>
+            <div class="menu-text ml-3 overflow-hidden">
+                <div class="text-white text-sm font-medium truncate">张明远</div>
+                <div class="text-white/40 text-xs truncate">超级管理员</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 顶部栏 -->
+        <header class="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 flex-shrink-0">
+            <div class="flex items-center">
+                <button @click="sidebarCollapsed = !sidebarCollapsed" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas" :class="sidebarCollapsed ? 'fa-indent' : 'fa-outdent'"></i>
+                </button>
+                <!-- 面包屑 -->
+                <nav class="ml-4 text-sm text-gray-400">
+                    <span>首页</span>
+                    <i class="fas fa-chevron-right mx-2 text-xs"></i>
+                    <span class="text-gray-600" x-text="pageTitle"></span>
+                </nav>
+            </div>
+            <div class="flex items-center space-x-3">
+                <!-- 搜索 -->
+                <div class="relative hidden md:block">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm"></i>
+                    <input type="text" placeholder="搜索设备、工单..." class="pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent w-56">
+                </div>
+                <!-- 全屏 -->
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded transition-colors"><i class="fas fa-expand"></i></button>
+                <!-- 通知 -->
+                <button @click="navigate('notification')" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded transition-colors relative">
+                    <i class="fas fa-bell"></i>
+                    <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger-500 text-white text-xs rounded-full flex items-center justify-center">5</span>
+                </button>
+                <!-- 用户 -->
+                <div class="flex items-center ml-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors" @click="navigate('profile')">
+                    <div class="w-7 h-7 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold">张</div>
+                    <span class="ml-2 text-sm text-gray-600 hidden md:inline">张明远</span>
+                    <i class="fas fa-chevron-down ml-1 text-xs text-gray-400"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- 标签页栏 -->
+        <div class="h-10 bg-white border-b border-gray-100 flex items-center px-2 flex-shrink-0 overflow-x-auto">
+            <template x-for="tab in openTabs" :key="tab.key">
+                <div class="flex items-center h-7 px-3 mr-1 rounded text-xs cursor-pointer whitespace-nowrap transition-colors"
+                     :class="tab.key === currentPage ? 'bg-primary-50 text-primary-500' : 'text-gray-500 hover:bg-gray-50'"
+                     @click="navigate(tab.key)">
+                    <span x-text="tab.title"></span>
+                    <i class="fas fa-times ml-2 text-xs hover:text-danger-500" @click.stop="closeTab(tab.key)"></i>
+                </div>
+            </template>
+        </div>
+
+        <!-- 内容区 -->
+        <main class="flex-1 overflow-y-auto p-6 bg-gray-50/80">
+
+            <!-- ==================== 工作台/仪表盘 ==================== -->
+            <div x-show="currentPage==='dashboard'" class="page-transition">
+                <!-- KPI 卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+                    <div class="stat-card bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm text-gray-400">设备总数</span>
+                            <div class="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center"><i class="fas fa-server text-primary-500"></i></div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-700">2,847</div>
+                        <div class="flex items-center mt-2 text-xs"><span class="text-success-500"><i class="fas fa-arrow-up mr-1"></i>12.5%</span><span class="text-gray-400 ml-2">较上月</span></div>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm text-gray-400">在线率</span>
+                            <div class="w-10 h-10 bg-success-50 rounded-lg flex items-center justify-center"><i class="fas fa-wifi text-success-500"></i></div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-700">96.8<span class="text-lg">%</span></div>
+                        <div class="flex items-center mt-2 text-xs"><span class="text-success-500"><i class="fas fa-arrow-up mr-1"></i>2.1%</span><span class="text-gray-400 ml-2">较上月</span></div>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-3">
+                       <span class="text-sm text-gray-400">故障率</span>
+                            <div class="w-10 h-10 bg-danger-50 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-triangle text-danger-500"></i></div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-700">1.2<span class="text-lg">%</span></div>
+                        <div class="flex items-center mt-2 text-xs"><span class="text-danger-500"><i class="fas fa-arrow-down mr-1"></i>0.3%</span><span class="text-gray-400 ml-2">较上月</span></div>
+                    </div>
+                    <div class="stat-card bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm text-gray-400">待维护</span>
+                            <div class="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center"><i class="fas fa-wrench text-warning-500"></i></div>
+                        </div>
+                        <div class="text-3xl font-bold text-gray-700">156</div>
+                        <div class="flex items-center mt-2 text-xs"><span class="text-warning-500"><i class="fas fa-arrow-up mr-1"></i>8 台</span><span class="text-gray-400 ml-2">新增待维护</span></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-6">
+                    <!-- 设备状态趋势图 -->
+                    <div class="xl:col-span-2 bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-700">设备运行趋势</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 text-xs rounded-md bg-primary-50 text-primary-500">周</button>
+                                <button class="px-3 py-1 text-xs rounded-md text-gray-400 hover:bg-gray-50">月</button>
+                                <button class="px-3 py-1 text-xs rounded-md text-gray-400 hover:bg-gray-50">年</button>
+                            </div>
+                        </div>
+                        <div id="trendChart" style="height:280px;"></div>
+                    </div>
+                    <!-- 设备分类占比 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">设备分类占比</h3>
+                        <div id="pieChart" style="height:280px;"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <!-- 预警信息 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-700">实时预警</h3>
+                            <a href="#" class="text-xs text-primary-500 hover:text-primary-600" @click.prevent="navigate('alarm')">查看全部 →</a>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex items-start p-3 bg-danger-50 rounded-lg">
+                                <div class="w-2 h-2 bg-danger-500 rounded-full mt-1.5 mr-3 pulse-dot flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">CNC-A003 主轴温度异常</div>
+                                    <div class="text-xs text-gray-400 mt-1">A区 · 3分钟前</div>
+                                </div>
+                                <span class="tag bg-danger-500 text-white ml-2 flex-shrink-0">紧急</span>
+                            </div>
+                            <div class="flex items-start p-3 bg-warning-50 rounded-lg">
+                                <div class="w-2 h-2 bg-warning-500 rounded-full mt-1.5 mr-3 pulse-dot flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">PLC-B012 通信延迟过高</div>
+                                    <div class="text-xs text-gray-400 mt-1">B区 · 15分钟前</div>
+                                </div>
+                                <span class="tag bg-warning-500 text-white ml-2 flex-shrink-0">警告</span>
+                            </div>
+                            <div class="flex items-start p-3 bg-warning-50 rounded-lg">
+                                <div class="w-2 h-2 bg-warning-500 rounded-full mt-1.5 mr-3 pulse-dot flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">AGV-C005 电池电量低于20%</div>
+                                    <div class="text-xs text-gray-400 mt-1">C区 · 28分钟前</div>
+                                </div>
+                                <span class="tag bg-warning-500 text-white ml-2 flex-shrink-0">警告</span>
+                            </div>
+                            <div class="flex items-start p-3 bg-info-50 rounded-lg">
+                                <div class="w-2 h-2 bg-info-500 rounded-full mt-1.5 mr-3 flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">ROBOT-D008 即将到达保养周期</div>
+                                    <div class="text-xs text-gray-400 mt-1">D区 · 1小时前</div>
+                                </div>
+                                <span class="tag bg-info-500 text-white ml-2 flex-shrink-0">提示</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 待办事项 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-700">待办事项</h3>
+                            <span class="text-xs text-gray-400">共 8 项</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex items-center p-3 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors cursor-pointer">
+                                <div class="w-8 h-8 bg-danger-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0"><i class="fas fa-tools text-danger-500 text-xs"></i></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">处理CNC-A003故障工单</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">优先级：紧急 · 截止：今天 18:00</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center p-3 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors cursor-pointer">
+                                <div class="w-8 h-8 bg-warning-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0"><i class="fas fa-clipboard-check text-warning-500 text-xs"></i></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">审批设备采购申请 #2024-0312</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">优先级：高 · 截止：明天 12:00</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center p-3 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors cursor-pointer">
+                                <div class="w-8 h-8 bg-primary-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0"><i class="fas fa-calendar text-primary-500 text-xs"></i></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">B区设备季度巡检</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">优先级：中 · 截止：03-15</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center p-3 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors cursor-pointer">
+                                <div class="w-8 h-8 bg-success-50 rounded-lg flex items-center justify-center mr-3 flex-shrink-0"><i class="fas fa-file-alt text-success-500 text-xs"></i></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium text-gray-700 truncate">提交2月设备运行月报</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">优先级：中 · 截止：03-10</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 设备区域分布 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">设备区域分布</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-600">A区 - 精密加工车间</span><span class="text-gray-400">486台</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-primary-500 h-2 rounded-full" style="width:68%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-600">B区 - 装配车间</span><span class="text-gray-400">392台</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-success-500 h-2 rounded-full" style="width:55%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-600">C区 - 仓储物流</span><span class="text-gray-400">328台</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-warning-500 h-2 rounded-full" style="width:46%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-600">D区 - 焊接车间</span><span class="text-gray-400">275台</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-info-500 h-2 rounded-full" style="width:38%"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1"><span class="text-gray-600">E区 - 检测中心</span><span class="text-gray-400">186台</span></div>
+                                <div class="w-full bg-gray-100 rounded-full h-2"><div class="bg-purple-500 h-2 rounded-full" style="width:26%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 设备列表页 ==================== -->
+            <div x-show="currentPage==='equipment-list'" class="page-transition">
+                <!-- 筛选区 -->
+                <div class="bg-white rounded-xl p-5 border border-gray-100 mb-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">设备名称/编号</label>
+                            <input type="text" placeholder="请输入关键词" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">设备分类</label>
+                            <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                <option>全部分类</option><option>数控机床</option><option>工业机器人</option><option>AGV小车</option><option>PLC控制器</option><option>检测设备</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">设备状态</label>
+                            <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                <option>全部状态</option><option>运行中</option><option>待机</option><option>维护中</option><option>故障</option><option>已报废</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">所在区域</label>
+                            <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                <option>全部区域</option><option>A区-精密加工</option><option>B区-装配车间</option><option>C区-仓储物流</option><option>D区-焊接车间</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end space-x-2">
+                            <button class="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg text-sm transition-colors"><i class="fas fa-search mr-1"></i>查询</button>
+                            <button class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50 transition-colors">重置</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作栏 -->
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <button class="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg text-sm transition-colors" @click="navigate('equipment-form')"><i class="fas fa-plus mr-1"></i>新增设备</button>
+                        <button class="border border-gray-200 text-gray-500 py-2 px-4 rounded-lg text-sm hover:bg-gray-50 transition-colors"><i class="fas fa-file-import mr-1"></i>批量导入</button>
+                        <button class="border border-gray-200 text-gray-500 py-2 px-4 rounded-lg text-sm hover:bg-gray-50 transition-colors"><i class="fas fa-file-export mr-1"></i>导出</button>
+                        <button class="border border-gray-200 text-gray-500 py-2 px-4 rounded-lg text-sm hover:bg-gray-50 transition-colors"><i class="fas fa-trash-alt mr-1"></i>批量删除</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-400">共 <strong class="text-gray-600">2,847</strong> 台设备</span>
+                        <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400 hover:bg-gray-50"><i class="fas fa-th-large text-xs"></i></button>
+                        <button class="w-8 h-8 border border-primary-200 bg-primary-50 rounded flex items-center justify-center text-primary-500"><i class="fas fa-list text-xs"></i></button>
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full data-table">
+                            <thead>
+                                <tr class="border-b border-gray-100">
+                                    <th class="py-3 px-4 text-left"><input type="checkbox" class="rounded border-gray-300"></th>
+                                    <th class="py-3 px-4 text-left">设备编号 <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="py-3 px-4 text-left">设备名称</th>
+                                    <th class="py-3 px-4 text-left">分类</th>
+                                    <th class="py-3 px-4 text-left">型号</th>
+                                    <th class="py-3 px-4 text-left">所在区域</th>
+                                    <th class="py-3 px-4 text-left">状态</th>
+                                    <th class="py-3 px-4 text-left">负责人</th>
+                                    <th class="py-3 px-4 text-left">上次维护 <i class="fas fa-sort text-gray-300 ml-1"></i></th>
+                                    <th class="py-3 px-4 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><a href="#" class="text-primary-500 hover:text-primary-600 font-mono" @click.prevent="navigate('equipment-detail')">CNC-A001</a></td>
+                                    <td class="py-3 px-4 font-medium">五轴联动加工中心</td>
+                                    <td class="py-3 px-4"><span class="tag bg-blue-50 text-blue-600">数控机床</span></td>
+                                    <td class="py-3 px-4 text-gray-500">DMG MORI DMU 50</td>
+                                    <td class="py-3 px-4 text-gray-500">A区-精密加工</td>
+                                    <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>运行中</span></td>
+                                    <td class="py-3 px-4 text-gray-500">李伟强</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-02-28</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1" title="查看" @click="navigate('equipment-detail')"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1" title="编辑" @click="navigate('equipment-form')"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1" title="删除"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><a href="#" class="text-primary-500 hover:text-primary-600 font-mono">CNC-A002</a></td>
+                                    <td class="py-3 px-4 font-medium">数控车床</td>
+                                    <td class="py-3 px-4"><span class="tag bg-blue-50 text-blue-600">数控机床</span></td>
+                                    <td class="py-3 px-4 text-gray-500">MAZAK QT-250</td>
+                                    <td class="py-3 px-4 text-gray-500">A区-精密加工</td>
+                                    <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>运行中</span></td>
+                                    <td class="py-3 px-4 text-gray-500">王建华</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-03-01</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><span class="text-primary-500 font-mono">CNC-A003</span></td>
+                                    <td class="py-3 px-4 font-medium">龙门加工中心</td>
+                                    <td class="py-3 px-4"><span class="tag bg-blue-50 text-blue-600">数控机床</span></td>
+                                    <td class="py-3 px-4 text-gray-500">HAAS VF-6SS</td>
+                                    <td class="py-3 px-4 text-gray-500">A区-精密加工</td>
+                                    <td class="py-3 px-4"><span class="badge bg-danger-50 text-danger-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>故障</span></td>
+                                    <td class="py-3 px-4 text-gray-500">陈志明</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-02-15</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><span class="text-primary-500 font-mono">ROBOT-B001</span></td>
+                                    <td class="py-3 px-4 font-medium">六轴焊接机器人</td>
+                                    <td class="py-3 px-4"><span class="tag bg-purple-50 text-purple-600">工业机器人</span></td>
+                                    <td class="py-3 px-4 text-gray-500">FANUC R-2000iC</td>
+                                    <td class="py-3 px-4 text-gray-500">B区-装配车间</td>
+                                    <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>运行中</span></td>
+                                    <td class="py-3 px-4 text-gray-500">赵鹏飞</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-03-05</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><span class="text-primary-500 font-mono">AGV-C001</span></td>
+                                    <td class="py-3 px-4 font-medium">智能搬运AGV</td>
+                                    <td class="py-3 px-4"><span class="tag bg-green-50 text-green-600">AGV小车</span></td>
+                                    <td class="py-3 px-4 text-gray-500">海康威视 MR-Q3</td>
+                                    <td class="py-3 px-4 text-gray-500">C区-仓储物流</td>
+                                    <td class="py-3 px-4"><span class="badge bg-yellow-50 text-yellow-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>待机</span></td>
+                                    <td class="py-3 px-4 text-gray-500">刘晓东</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-03-06</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                    <td class="py-3 px-4"><span class="text-primary-500 font-mono">PLC-B012</span></td>
+                                    <td class="py-3 px-4 font-medium">可编程逻辑控制器</td>
+                                    <td class="py-3 px-4"><span class="tag bg-orange-50 text-orange-600">PLC控制器</span></td>
+                                    <td class="py-3 px-4 text-gray-500">西门子 S7-1500</td>
+                                    <td class="py-3 px-4 text-gray-500">B区-装配车间</td>
+                                    <td class="py-3 px-4"><span class="badge bg-orange-50 text-orange-600"><i class="fas fa-circle text-xs mr-1" style="font-size:6px"></i>维护中</span></td>
+                                    <td class="py-3 px-4 text-gray-500">孙国强</td>
+                                    <td class="py-3 px-4 text-gray-400">2026-03-07</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                        <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                        <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- 分页 -->
+                    <div class="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+                        <span class="text-sm text-gray-400">显示 1-6 / 共 2,847 条</span>
+                        <div class="flex items-center space-x-1">
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400 hover:bg-gray-50"><i class="fas fa-chevron-left text-xs"></i></button>
+                            <button class="w-8 h-8 bg-primary-500 text-white rounded flex items-center justify-center text-sm">1</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">2</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">3</button>
+                            <span class="text-gray-400 px-1">...</span>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">475</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400 hover:bg-gray-50"><i class="fas fa-chevron-right text-xs"></i></button>
+                            <select class="ml-2 px-2 py-1 border border-gray-200 rounded text-sm text-gray-500 bg-white">
+                                <option>6条/页</option><option>10条/页</option><option>20条/页</option><option>50条/页</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 设备详情页 ==================== -->
+            <div x-show="currentPage==='equipment-detail'" class="page-transition">
+                <!-- 设备头部信息 -->
+                <div class="bg-white rounded-xl p-6 border border-gray-100 mb-5">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start">
+                            <div class="w-16 h-16 bg-primary-50 rounded-xl flex items-center justify-center mr-5 flex-shrink-0">
+                                <i class="fas fa-cogs text-primary-500 text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center">
+                                    <h2 class="text-xl font-bold text-gray-700">五轴联动加工中心</h2>
+                                    <span class="badge bg-success-50 text-success-600 ml-3"><i class="fas fa-circle mr-1" style="font-size:6px"></i>运行中</span>
+                                </div>
+                                <div class="flex items-center mt-2 text-sm text-gray-400 space-x-4">
+                                    <span><i class="fas fa-barcode mr-1"></i>CNC-A001</span>
+                                    <span><i class="fas fa-tag mr-1"></i>数控机床</span>
+                                    <span><i class="fas fa-map-marker-alt mr-1"></i>A区-精密加工车间</span>
+                                    <span><i class="fas fa-user mr-1"></i>负责人：李伟强</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-qrcode mr-1"></i>二维码</button>
+                            <button class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-edit mr-1"></i>编辑</button>
+                            <button class="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600"><i class="fas fa-wrench mr-1"></i>发起维护</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <!-- 左侧：基本信息 + 运行参数 -->
+                    <div class="xl:col-span-2 space-y-5">
+                        <!-- 基本信息 -->
+              <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-info-circle text-primary-500 mr-2"></i>基本信息</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8">
+                                <div><span class="text-xs text-gray-400 block">设备型号</span><span class="text-sm text-gray-700 mt-0.5 block">DMG MORI DMU 50</span></div>
+                                <div><span class="text-xs text-gray-400 block">制造商</span><span class="text-sm text-gray-700 mt-0.5 block">德马吉森精机</span></div>
+                                <div><span class="text-xs text-gray-400 block">出厂编号</span><span class="text-sm text-gray-700 mt-0.5 block">DMG2023-08-1542</span></div>
+                                <div><span class="text-xs text-gray-400 block">购入日期</span><span class="text-sm text-gray-700 mt-0.5 block">2023-08-15</span></div>
+                                <div><span class="text-xs text-gray-400 block">启用日期</span><span class="text-sm text-gray-700 mt-0.5 block">2023-09-01</span></div>
+                                <div><span class="text-xs text-gray-400 block">保修到期</span><span class="text-sm text-gray-700 mt-0.5 block">2025-08-15</span></div>
+                                <div><span class="text-xs text-gray-400 block">资产编号</span><span class="text-sm text-gray-700 mt-0.5 block">FA-2023-00486</span></div>
+                                <div><span class="text-xs text-gray-400 block">原值（万元）</span><span class="text-sm text-gray-700 mt-0.5 block">285.00</span></div>
+                                <div><span class="text-xs text-gray-400 block">使用年限</span><span class="text-sm text-gray-700 mt-0.5 block">10年</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 实时运行参数 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-semibold text-gray-700"><i class="fas fa-chart-line text-success-500 mr-2"></i>实时运行参数</h3>
+                                <span class="text-xs text-gray-400"><i class="fas fa-sync-alt mr-1"></i>最后更新：2秒前</span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                    <div class="text-xs text-gray-400 mb-1">主轴转速</div>
+                                    <div class="text-2xl font-bold text-gray-700">12,000</div>
+                                    <div class="text-xs text-gray-400">RPM</div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                    <div class="text-xs text-gray-400 mb-1">主轴温度</div>
+                                    <div class="text-2xl font-bold text-success-500">42.5</div>
+                                    <div class="text-xs text-gray-400">°C</div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                    <div class="text-xs text-gray-400 mb-1">进给速率</div>
+                                    <div class="text-2xl font-bold text-gray-700">8,500</div>
+                                    <div class="text-xs text-gray-400">mm/min</div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                    <div class="text-xs text-gray-400 mb-1">运行时长</div>
+                                    <div class="text-2xl font-bold text-gray-700">6.5</div>
+                                    <div class="text-xs text-gray-400">小时/今日</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 维护记录 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-history text-warning-500 mr-2"></i>维护记录</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-start">
+                                    <div class="w-8 h-8 bg-success-50 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0"><i class="fas fa-check text-success-500 text-xs"></i></div>
+                                    <div class="flex-1 border-b border-gray-50 pb-4">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm font-medium text-gray-700">定期保养 - 月度维护</span>
+                                            <span class="text-xs text-gray-400">2026-02-28</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">更换润滑油、检查主轴精度、清洁冷却系统。执行人：李伟强</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-8 h-8 bg-warning-50 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0"><i class="fas fa-wrench text-warning-500 text-xs"></i></div>
+                                    <div class="flex-1 border-b border-gray-50 pb-4">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm font-medium text-gray-700">故障维修 - 刀库换刀异常</span>
+                                            <span class="text-xs text-gray-400">2026-02-10</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">更换刀库电机驱动板，重新校准刀位。维修耗时4小时。执行人：陈志明</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="w-8 h-8 bg-success-50 rounded-full flex items-center justify-center mr-3 mt-0.5 flex-shrink-0"><i class="fas fa-check text-success-500 text-xs"></i></div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-sm font-medium text-gray-700">定期保养 - 月度维护</span>
+                                            <span class="text-xs text-gray-400">2026-01-30</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">常规保养，各项指标正常。执行人：李伟强</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：生命周期 + 关联文档 -->
+                    <div class="space-y-5">
+                        <!-- 生命周期 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-recycle text-primary-500 mr-2"></i>生命周期</h3>
+                            <div class="relative pl-6">
+                                <div class="absolute left-2 top-2 bottom-2 w-0.5 bg-gray-100"></div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-4 w-3 h-3 bg-success-500 rounded-full border-2 border-white"></div>
+                                    <div class="text-sm font-medium text-gray-700">采购入库</div>
+                                    <div class="text-xs text-gray-400">2023-08-15</div>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-4 w-3 h-3 bg-success-500 rounded-full border-2 border-white"></div>
+                                    <div class="text-sm font-medium text-gray-700">安装调试</div>
+                                    <div class="text-xs text-gray-400">2023-08-20 ~ 2023-08-30</div>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-4 w-3 h-3 bg-primary-500 rounded-full border-2 border-white pulse-dot"></div>
+                                    <div class="text-sm font-medium text-primary-500">正常使用中</div>
+                                    <div class="text-xs text-gray-400">2023-09-01 至今（已运行 912 天）</div>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-4 w-3 h-3 bg-gray-200 rounded-full border-2 border-white"></div>
+                                    <div class="text-sm text-gray-400">预计大修</div>
+                                    <div class="text-xs text-gray-300">2028-09-01</div>
+                                </div>
+                                <div class="relative">
+                                    <div class="absolute -left-4 w-3 h-3 bg-gray-200 rounded-full border-2 border-white"></div>
+                                    <div class="text-sm text-gray-400">预计报废</div>
+                                    <div class="text-xs text-gray-300">2033-08-15</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 关联文档 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-folder-open text-warning-500 mr-2"></i>关联文档</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                    <i class="fas fa-file-pdf text-danger-500 mr-3"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-gray-700 truncate">DMU50_操作手册.pdf</div>
+                                        <div class="text-xs text-gray-400">2.4 MB</div>
+                                    </div>
+                                    <i class="fas fa-download text-gray-300 hover:text-primary-500"></i>
+                                </div>
+                                <div class="flex items-center p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                    <i class="fas fa-file-excel text-success-500 mr-3"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-gray-700 truncate">维护保养记录表.xlsx</div>
+                                        <div class="text-xs text-gray-400">156 KB</div>
+                                    </div>
+                                    <i class="fas fa-download text-gray-300 hover:text-primary-500"></i>
+                                </div>
+                                <div class="flex items-center p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                    <i class="fas fa-file-image text-purple-500 mr-3"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-gray-700 truncate">设备铭牌照片.jpg</div>
+                                        <div class="text-xs text-gray-400">3.1 MB</div>
+                                    </div>
+                                    <i class="fas fa-download text-gray-300 hover:text-primary-500"></i>
+                                </div>
+                                <div class="flex items-center p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                    <i class="fas fa-file-alt text-blue-500 mr-3"></i>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm text-gray-700 truncate">验收报告_2023.docx</div>
+                                        <div class="text-xs text-gray-400">890 KB</div>
+                                    </div>
+                                    <i class="fas fa-download text-gray-300 hover:text-primary-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 设备新增/编辑页 ==================== -->
+            <div x-show="currentPage==='equipment-form'" class="page-transition">
+                <div class="bg-white rounded-xl p-6 border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-6">新增设备</h3>
+                    <div class="space-y-6">
+                        <!-- 基本信息 -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b border-gray-100"><i class="fas fa-info-circle text-primary-500 mr-2"></i>基本信息</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">设备名称 <span class="text-danger-500">*</span></label>
+                                    <input type="text" placeholder="请输入设备名称" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">设备编号 <span class="text-danger-500">*</span></label>
+                                    <input type="text" placeholder="系统自动生成或手动输入" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">设备分类 <span class="text-danger-500">*</span></label>
+                                    <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                        <option value="">请选择分类</option><option>数控机床</option><option>工业机器人</option><option>AGV小车</option><option>PLC控制器</option><option>检测设备</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">设备型号</label>
+                                    <input type="text" placeholder="请输入设备型号" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">制造商</label>
+                                    <input type="text" placeholder="请输入制造商" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">出厂编号</label>
+                                    <input type="text" placeholder="请输入出厂编号" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 位置与归属 -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b border-gray-100"><i class="fas fa-map-marker-alt text-success-500 mr-2"></i>位置与归属</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">所在区域 <span class="text-danger-500">*</span></label>
+                                    <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                        <option value="">请选择区域</option><option>A区-精密加工车间</option><option>B区-装配车间</option><option>C区-仓储物流</option><option>D区-焊接车间</option><option>E区-检测中心</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">具体位置</label>
+                                    <input type="text" placeholder="如：A区3号线2号工位" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">负责人 <span class="text-danger-500">*</span></label>
+                                    <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                        <option value="">请选择负责人</option><option>李伟强</option><option>王建华</option><option>陈志明</option><option>赵鹏飞</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">所属部门</label>
+                                    <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white">
+                                        <option value="">请选择部门</option><option>生产部</option><option>设备部</option><option>质检部</option><option>仓储部</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 采购与财务 -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b border-gray-100"><i class="fas fa-yen-sign text-warning-500 mr-2"></i>采购与财务</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">购入日期</label>
+                                    <input type="date" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">资产原值（万元）</label>
+                                    <input type="number" placeholder="0.00" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">使用年限（年）</label>
+                                    <input type="number" placeholder="10" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">保修到期日</label>
+                                    <input type="date" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">供应商</label>
+                                    <input type="text" placeholder="请输入供应商名称" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 附件上传 -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-600 mb-4 pb-2 border-b border-gray-100"><i class="fas fa-paperclip text-purple-500 mr-2"></i>附件上传</h4>
+                            <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-300 mb-3"></i>
+                                <p class="text-sm text-gray-500">点击或拖拽文件到此处上传</p>
+                                <p class="text-xs text-gray-400 mt-1">支持 PDF、Word、Excel、图片等格式，单个文件不超过 20MB</p>
+                            </div>
+                        </div>
+                        <!-- 备注 -->
+                        <div>
+                            <label class="block text-sm text-gray-500 mb-1.5">备注说明</label>
+                            <textarea rows="3" placeholder="请输入备注信息..." class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"></textarea>
+                        </div>
+                        <!-- 操作按钮 -->
+                        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-100">
+                            <button class="px-6 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50">取消</button>
+                            <button class="px-6 py-2 border border-primary-200 bg-primary-50 text-primary-500 rounded-lg text-sm hover:bg-primary-100">保存草稿</button>
+                            <button class="px-6 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600"><i class="fas fa-check mr-1"></i>提交</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 维护计划列表 ==================== -->
+            <div x-show="currentPage==='maintenance-plan'" class="page-transition">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center space-x-2">
+                        <button class="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg text-sm transition-colors"><i class="fas fa-plus mr-1"></i>新建计划</button>
+                        <button class="border border-gray-200 text-gray-500 py-2 px-4 rounded-lg text-sm hover:bg-gray-50"><i class="fas fa-file-export mr-1"></i>导出</button>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部类型</option><option>周期性维护</option><option>一次性维护</option></select>
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部状态</option><option>进行中</option><option>已完成</option><option>已暂停</option></select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    <!-- 计划卡片1 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="badge bg-primary-50 text-primary-500">周期性</span>
+                            <span class="badge bg-success-50 text-success-600">进行中</span>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mb-2">A区数控机床月度保养</h4>
+                        <p class="text-xs text-gray-400 mb-4">每月最后一个工作日执行，包含润滑、精度校准、冷却系统检查等项目</p>
+                        <div class="space-y-2 text-xs text-gray-500">
+                            <div class="flex justify-between"><span><i class="fas fa-server mr-1"></i>涉及设备</span><span class="font-medium">48 台</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-calendar mr-1"></i>下次执行</span><span class="font-medium">2026-03-31</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-user mr-1"></i>负责人</span><span class="font-medium">李伟强</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-redo mr-1"></i>已执行</span><span class="font-medium">28 次</span></div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-50 flex justify-between">
+                            <div class="text-xs text-gray-400">完成率</div>
+                            <div class="text-xs font-medium text-success-500">96.4%</div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div class="bg-success-500 h-1.5 rounded-full" style="width:96.4%"></div></div>
+                    </div>
+                    <!-- 计划卡片2 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="badge bg-primary-50 text-primary-500">周期性</span>
+                            <span class="badge bg-success-50 text-success-600">进行中</span>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mb-2">工业机器人季度大检</h4>
+                        <p class="text-xs text-gray-400 mb-4">每季度执行一次，包含关节校准、减速器检查、电气系统检测</p>
+                        <div class="space-y-2 text-xs text-gray-500">
+                            <div class="flex justify-between"><span><i class="fas fa-robot mr-1"></i>涉及设备</span><span class="font-medium">32 台</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-calendar mr-1"></i>下次执行</span><span class="font-medium">2026-04-01</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-user mr-1"></i>负责人</span><span class="font-medium">赵鹏飞</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-redo mr-1"></i>已执行</span><span class="font-medium">9 次</span></div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-50 flex justify-between">
+                            <div class="text-xs text-gray-400">完成率</div>
+                            <div class="text-xs font-medium text-success-500">100%</div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div class="bg-success-500 h-1.5 rounded-full" style="width:100%"></div></div>
+                    </div>
+                    <!-- 计划卡片3 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="badge bg-orange-50 text-orange-500">一次性</span>
+                            <span class="badge bg-warning-50 text-warning-600">待执行</span>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mb-2">C区AGV系统升级维护</h4>
+                        <p class="text-xs text-gray-400 mb-4">AGV导航系统固件升级，需停机维护，预计耗时2天</p>
+                        <div class="space-y-2 text-xs text-gray-500">
+                            <div class="flex justify-between"><span><i class="fas fa-truck mr-1"></i>涉及设备</span><span class="font-medium">15 台</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-calendar mr-1"></i>计划日期</span><span class="font-medium">2026-03-15</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-user mr-1"></i>负责人</span><span class="font-medium">刘晓东</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-clock mr-1"></i>预计工时</span><span class="font-medium">16 小时</span></div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-50 flex justify-between">
+                            <div class="text-xs text-gray-400">准备进度</div>
+                            <div class="text-xs font-medium text-warning-500">60%</div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div class="bg-warning-500 h-1.5 rounded-full" style="width:60%"></div></div>
+                    </div>
+                    <!-- 计划卡片4 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="badge bg-primary-50 text-primary-500">周期性</span>
+                            <span class="badge bg-success-50 text-success-600">进行中</span>
+                        </div>
+                        <h4 class="font-semibold text-gray-700 mb-2">全厂消防设备年检</h4>
+                        <p class="text-xs text-gray-400 mb-4">年度消防设备检查，包含灭火器、消防栓、烟感报警器等</p>
+                        <div class="space-y-2 text-xs text-gray-500">
+                            <div class="flex justify-between"><span><i class="fas fa-fire-extinguisher mr-1"></i>涉及设备</span><span class="font-medium">186 台</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-calendar mr-1"></i>下次执行</span><span class="font-medium">2026-06-01</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-user mr-1"></i>负责人</span><span class="font-medium">孙国强</span></div>
+                            <div class="flex justify-between"><span><i class="fas fa-redo mr-1"></i>已执行</span><span class="font-medium">2 次</span></div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-50 flex justify-between">
+                            <div class="text-xs text-gray-400">完成率</div>
+                            <div class="text-xs font-medium text-success-500">100%</div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1"><div class="bg-success-500 h-1.5 rounded-full" style="width:100%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 工单管理页面 ==================== -->
+            <div x-show="currentPage==='work-order'" class="page-transition">
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                        <div class="text-2xl font-bold text-gray-700">342</div>
+                        <div class="text-xs text-gray-400 mt-1">全部工单</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                        <div class="text-2xl font-bold text-danger-500">18</div>
+                        <div class="text-xs text-gray-400 mt-1">待处理</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                        <div class="text-2xl font-bold text-primary-500">45</div>
+                        <div class="text-xs text-gray-400 mt-1">处理中</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
+                        <div class="text-2xl font-bold text-success-500">279</div>
+                        <div class="text-xs text-gray-400 mt-1">已完成</div>
+                    </div>
+                </div>
+                <!-- 筛选 + 操作 -->
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <button class="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-1"></i>创建工单</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部类型</option><option>故障维修</option><option>定期保养</option><option>巡检</option></select>
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部优先级</option><option>紧急</option><option>高</option><option>中</option><option>低</option></select>
+                        <input type="text" placeholder="搜索工单..." class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48">
+                    </div>
+                </div>
+                <!-- 工单表格 -->
+                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <table class="w-full data-table">
+                        <thead>
+                            <tr class="border-b border-gray-100">
+                                <th class="py-3 px-4 text-left">工单编号</th>
+                                <th class="py-3 px-4 text-left">标题</th>
+                                <th class="py-3 px-4 text-left">类型</th>
+                                <th class="py-3 px-4 text-left">关联设备</th>
+                                <th class="py-3 px-4 text-left">优先级</th>
+                                <th class="py-3 px-4 text-left">状态</th>
+                                <th class="py-3 px-4 text-left">执行人</th>
+                                <th class="py-3 px-4 text-left">创建时间</th>
+                                <th class="py-3 px-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><a href="#" class="text-primary-500 font-mono" @click.prevent="navigate('work-order-detail')">WO-20260307-001</a></td>
+                                <td class="py-3 px-4 font-medium">CNC-A003主轴温度异常维修</td>
+                                <td class="py-3 px-4"><span class="tag bg-danger-50 text-danger-600">故障维修</span></td>
+                                <td class="py-3 px-4 text-gray-500">CNC-A003</td>
+                                <td class="py-3 px-4"><span class="badge bg-danger-50 text-danger-600">紧急</span></td>
+                                <td class="py-3 px-4"><span class="badge bg-orange-50 text-orange-600">处理中</span></td>
+                                <td class="py-3 px-4 text-gray-500">陈志明</td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-07 09:15</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1" @click="navigate('work-order-detail')"><i class="fas fa-eye"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><span class="text-primary-500 font-mono">WO-20260307-002</span></td>
+                                <td class="py-3 px-4 font-medium">PLC-B012通信模块更换</td>
+                                <td class="py-3 px-4"><span class="tag bg-danger-50 text-danger-600">故障维修</span></td>
+                                <td class="py-3 px-4 text-gray-500">PLC-B012</td>
+                                <td class="py-3 px-4"><span class="badge bg-warning-50 text-warning-600">高</span></td>
+                                <td class="py-3 px-4"><span class="badge bg-blue-50 text-blue-600">待派发</span></td>
+                                <td class="py-3 px-4 text-gray-500">—</td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-07 10:30</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><span class="text-primary-500 font-mono">WO-20260306-015</span></td>
+                                <td class="py-3 px-4 font-medium">B区机器人月度保养</td>
+                                <td class="py-3 px-4"><span class="tag bg-blue-50 text-blue-600">定期保养</span></td>
+                                <td class="py-3 px-4 text-gray-500">ROBOT-B001~B008</td>
+                                <td class="py-3 px-4"><span class="badge bg-blue-50 text-blue-600">中</span></td>
+                                <td class="py-3 px-4"><span class="badge bg-orange-50 text-orange-600">处理中</span></td>
+                                <td class="py-3 px-4 text-gray-500">赵鹏飞</td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-06 14:00</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-edit"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><span class="text-primary-500 font-mono">WO-20260305-008</span></td>
+                                <td class="py-3 px-4 font-medium">AGV-C005电池更换</td>
+                                <td class="py-3 px-4"><span class="tag bg-danger-50 text-danger-600">故障维修</span></td>
+                                <td class="py-3 px-4 text-gray-500">AGV-C005</td>
+                                <td class="py-3 px-4"><span class="badge bg-blue-50 text-blue-600">中</span></td>
+                                <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600">已完成</span></td>
+                                <td class="py-3 px-4 text-gray-500">刘晓东</td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-05 08:45</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-eye"></i></button>
+                                    <button class="text-gray-400 hover:text-gray-300 mx-1 cursor-not-allowed"><i class="fas fa-edit"></i></button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+                        <span class="text-sm text-gray-400">显示 1-4 / 共 342 条</span>
+                        <div class="flex items-center space-x-1">
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400"><i class="fas fa-chevron-left text-xs"></i></button>
+                            <button class="w-8 h-8 bg-primary-500 text-white rounded flex items-center justify-center text-sm">1</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">2</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">3</button>
+                            <span class="text-gray-400 px-1">...</span>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400"><i class="fas fa-chevron-right text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 工单详情页 ==================== -->
+            <div x-show="currentPage==='work-order-detail'" class="page-transition">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div class="xl:col-span-2 space-y-5">
+                        <!-- 工单头部 -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-100">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <div class="flex items-center space-x-3">
+                                        <h2 class="text-lg font-bold text-gray-700">CNC-A003主轴温度异常维修</h2>
+                                        <span class="badge bg-danger-50 text-danger-600">紧急</span>
+                                        <span class="badge bg-orange-50 text-orange-600">处理中</span>
+                                    </div>
+                                    <div class="text-sm text-gray-400 mt-2">工单编号：WO-20260307-001 · 创建于 2026-03-07 09:15</div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-print mr-1"></i>打印</button>
+                                    <button class="px-4 py-2 bg-success-500 text-white rounded-lg text-sm hover:bg-success-600"><i class="fas fa-check mr-1"></i>完成验收</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                                <div><span class="text-xs text-gray-400 block">工单类型</span><span class="text-sm font-medium text-gray-700">故障维修</span></div>
+                                <div><span class="text-xs text-gray-400 block">关联设备</span><a href="#" class="text-sm font-medium text-primary-500" @click.prevent="navigate('equipment-detail')">CNC-A003</a></div>
+                                <div><span class="text-xs text-gray-400 block">创建人</span><span class="text-sm font-medium text-gray-700">张明远</span></div>
+                                <div><span class="text-xs text-gray-400 block">执行人</span><span class="text-sm font-medium text-gray-700">陈志明</span></div>
+                            </div>
+                        </div>
+                        <!-- 问题描述 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-3"><i class="fas fa-exclamation-circle text-danger-500 mr-2"></i>问题描述</h3>
+                            <p class="text-sm text-gray-600 leading-relaxed">CNC-A003龙门加工中心主轴温度持续升高，当前温度已达78°C（正常范围35-55°C）。初步判断可能是主轴冷却系统故障或轴承磨损导致。设备已自动停机保护，需要尽快排查修复，避免影响A区产线正常生产。</p>
+                        </div>
+                        <!-- 处理流程 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-tasks text-primary-500 mr-2"></i>处理流程</h3>
+                            <div class="relative pl-8">
+                                <div class="absolute left-3 top-2 bottom-2 w-0.5 bg-gray-100"></div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-5 w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"><i class="fas fa-check text-white" style="font-size:8px"></i></div>
+                                    <div class="flex items-center justify-between"><span class="text-sm font-medium text-gray-700">工单创建</span><span class="text-xs text-gray-400">2026-03-07 09:15</span></div>
+                                    <p class="text-xs text-gray-400 mt-1">张明远 创建了此工单</p>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-5 w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"><i class="fas fa-check text-white" style="font-size:8px"></i></div>
+                                    <div class="flex items-center justify-between"><span class="text-sm font-medium text-gray-700">工单派发</span><span class="text-xs text-gray-400">2026-03-07 09:20</span></div>
+                                    <p class="text-xs text-gray-400 mt-1">已派发给 陈志明，预计完成时间：2026-03-07 18:00</p>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-5 w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"><i class="fas fa-check text-white" style="font-size:8px"></i></div>
+                                    <div class="flex items-center justify-between"><span class="text-sm font-medium text-gray-700">开始处理</span><span class="text-xs text-gray-400">2026-03-07 09:35</span></div>
+                                    <p class="text-xs text-gray-400 mt-1">陈志明 已接单并开始处理</p>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-5 w-4 h-4 bg-primary-500 rounded-full pulse-dot"></div>
+                                    <div class="flex items-center justify-between"><span class="text-sm font-medium text-primary-500">维修进行中</span><span class="text-xs text-gray-400">2026-03-07 10:00</span></div>
+                                    <p class="text-xs text-gray-400 mt-1">已确认冷却系统管路堵塞，正在清洗管路并更换冷却液</p>
+                                </div>
+                                <div class="relative mb-6">
+                                    <div class="absolute -left-5 w-4 h-4 bg-gray-200 rounded-full"></div>
+                                    <span class="text-sm text-gray-400">维修完成</span>
+                                </div>
+                                <div class="relative">
+                                    <div class="absolute -left-5 w-4 h-4 bg-gray-200 rounded-full"></div>
+                                    <span class="text-sm text-gray-400">验收确认</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右侧信息 -->
+                    <div class="space-y-5">
+                        <!-- 备件消耗 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-box text-warning-500 mr-2"></i>备件消耗</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">冷却液 CL-200</div><div class="text-xs text-gray-400">库存编号：SP-00234</div></div>
+                                    <div class="text-right"><div class="text-sm font-medium text-gray-700">5 L</div><div class="text-xs text-gray-400">¥150.00</div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">过滤网 FN-50</div><div class="text-xs text-gray-400">库存编号：SP-00567</div></div>
+                                    <div class="text-right"><div class="text-sm font-medium text-gray-700">2 个</div><div class="text-xs text-gray-400">¥80.00</div></div>
+                                </div>
+                                <div class="border-t border-gray-100 pt-2 flex justify-between">
+                                    <span class="text-sm text-gray-500">合计</span>
+                                    <span class="text-sm font-bold text-gray-700">¥230.00</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 工时统计 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-clock text-info-500 mr-2"></i>工时统计</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-sm"><span class="text-gray-500">响应时间</span><span class="text-gray-700 font-medium">20 分钟</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-gray-500">已用工时</span><span class="text-gray-700 font-medium">3.5 小时</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-gray-500">预计剩余</span><span class="text-warning-500 font-medium">1.5 小时</span></div>
+                                <div class="flex justify-between text-sm border-t border-gray-100 pt-2"><span class="text-gray-500">人工成本</span><span class="text-gray-700 font-bold">¥525.00</span></div>
+                            </div>
+                        </div>
+                        <!-- 操作日志 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-list-alt text-gray-400 mr-2"></i>操作日志</h3>
+                            <div class="space-y-3 text-xs">
+                                <div class="flex"><span class="text-gray-400 w-28 flex-shrink-0">03-07 10:00</span><span class="text-gray-600">陈志明 更新了维修进度</span></div>
+                     <div class="flex"><span class="text-gray-400 w-28 flex-shrink-0">03-07 09:35</span><span class="text-gray-600">陈志明 接受了工单</span></div>
+                                <div class="flex"><span class="text-gray-400 w-28 flex-shrink-0">03-07 09:20</span><span class="text-gray-600">系统 自动派发给陈志明</span></div>
+                                <div class="flex"><span class="text-gray-400 w-28 flex-shrink-0">03-07 09:15</span><span class="text-gray-600">张明远 创建了工单</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 告警中心页面 ==================== -->
+            <div x-show="currentPage==='alarm'" class="page-transition">
+                <!-- 告警统计 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                    <div class="bg-white rounded-xl p-4 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div><div class="text-2xl font-bold text-danger-500">8</div><div class="text-xs text-gray-400 mt-1">紧急告警</div></div>
+                            <div class="w-10 h-10 bg-danger-50 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-circle text-danger-500"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div><div class="text-2xl font-bold text-warning-500">23</div><div class="text-xs text-gray-400 mt-1">警告</div></div>
+                            <div class="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-triangle text-warning-500"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div><div class="text-2xl font-bold text-info-500">45</div><div class="text-xs text-gray-400 mt-1">提示</div></div>
+                            <div class="w-10 h-10 bg-info-50 rounded-lg flex items-center justify-center"><i class="fas fa-info-circle text-info-500"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div><div class="text-2xl font-bold text-success-500">156</div><div class="text-xs text-gray-400 mt-1">今日已处理</div></div>
+                            <div class="w-10 h-10 bg-success-50 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-success-500"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 告警列表 -->
+                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                        <div class="flex items-center space-x-2">
+                            <button class="px-3 py-1.5 bg-primary-50 text-primary-500 rounded-lg text-sm">全部</button>
+                            <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">未处理</button>
+                            <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">已处理</button>
+                            <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">已忽略</button>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-cog mr-1"></i>告警规则</button>
+                            <button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-bell mr-1"></i>通知设置</button>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-50">
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-2 h-2 bg-danger-500 rounded-full mr-4 pulse-dot flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-700">CNC-A003 主轴温度超过阈值（78°C > 55°C）</span>
+                                    <span class="tag bg-danger-500 text-white ml-2">紧急</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">A区-精密加工车间 · 触发规则：主轴温度 > 55°C · 已持续 45 分钟</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">3 分钟前</div>
+                                <button class="text-xs text-primary-500 hover:text-primary-600 mt-1">处理</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-2 h-2 bg-danger-500 rounded-full mr-4 pulse-dot flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-700">ROBOT-D003 关节扭矩异常波动</span>
+                                    <span class="tag bg-danger-500 text-white ml-2">紧急</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">D区-焊接车间 · 触发规则：扭矩波动 > ±15% · 已持续 12 分钟</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">12 分钟前</div>
+                                <button class="text-xs text-primary-500 hover:text-primary-600 mt-1">处理</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-2 h-2 bg-warning-500 rounded-full mr-4 flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-700">PLC-B012 通信延迟超过阈值（250ms > 100ms）</span>
+                                    <span class="tag bg-warning-500 text-white ml-2">警告</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">B区-装配车间 · 触发规则：通信延迟 > 100ms</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">15 分钟前</div>
+                                <button class="text-xs text-primary-500 hover:text-primary-600 mt-1">处理</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-2 h-2 bg-warning-500 rounded-full mr-4 flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-700">AGV-C005 电池电量低于20%</span>
+                                    <span class="tag bg-warning-500 text-white ml-2">警告</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">C区-仓储物流 · 触发规则：电池电量 < 20%</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">28 分钟前</div>
+                                <button class="text-xs text-primary-500 hover:text-primary-600 mt-1">处理</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer">
+                            <div class="w-2 h-2 bg-info-500 rounded-full mr-4 flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-700">ROBOT-D008 距下次保养周期还有 3 天</span>
+                                    <span class="tag bg-info-500 text-white ml-2">提示</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">D区-焊接车间 · 触发规则：保养周期提前提醒</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">1 小时前</div>
+                                <button class="text-xs text-primary-500 hover:text-primary-600 mt-1">处理</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-4 hover:bg-gray-50 cursor-pointer opacity-60">
+                            <div class="w-2 h-2 bg-gray-300 rounded-full mr-4 flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-gray-500">CNC-A002 振动值轻微偏高</span>
+                                    <span class="tag bg-gray-200 text-gray-500 ml-2">已处理</span>
+                                </div>
+                                <div class="text-xs text-gray-400 mt-1">A区-精密加工车间 · 处理人：王建华 · 已调整参数恢复正常</div>
+                            </div>
+                            <div class="text-right flex-shrink-0 ml-4">
+                                <div class="text-xs text-gray-400">2 小时前</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 报表统计页面 ==================== -->
+            <div x-show="currentPage==='report'" class="page-transition">
+                <!-- 时间筛选 -->
+                <div class="bg-white rounded-xl p-4 border border-gray-100 mb-5 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-500">统计周期：</span>
+                        <button class="px-3 py-1.5 bg-primary-50 text-primary-500 rounded-lg text-sm">本月</button>
+                        <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">本季度</button>
+                        <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">本年度</button>
+                        <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm"><i class="fas fa-calendar mr-1"></i>自定义</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-file-excel mr-1 text-success-500"></i>导出Excel</button>
+                        <button class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-500 hover:bg-gray-50"><i class="fas fa-file-pdf mr-1 text-danger-500"></i>导出PDF</button>
+                    </div>
+                </div>
+                <!-- 核心指标 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="text-xs text-gray-400 mb-1">设备综合效率(OEE)</div>
+                        <div class="text-3xl font-bold text-primary-500">87.6<span class="text-lg">%</span></div>
+                        <div class="text-xs text-success-500 mt-1"><i class="fas fa-arrow-up mr-1"></i>+2.3% 环比</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="text-xs text-gray-400 mb-1">平均故障间隔(MTBF)</div>
+                        <div class="text-3xl font-bold text-gray-700">720<span class="text-lg">h</span></div>
+                        <div class="text-xs text-success-500 mt-1"><i class="fas fa-arrow-up mr-1"></i>+48h 环比</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="text-xs text-gray-400 mb-1">平均修复时间(MTTR)</div>
+                        <div class="text-3xl font-bold text-gray-700">4.2<span class="text-lg">h</span></div>
+                        <div class="text-xs text-success-500 mt-1"><i class="fas fa-arrow-down mr-1"></i>-0.8h 环比</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <div class="text-xs text-gray-400 mb-1">维护总成本(万元)</div>
+                        <div class="text-3xl font-bold text-gray-700">42.8</div>
+                        <div class="text-xs text-danger-500 mt-1"><i class="fas fa-arrow-up mr-1"></i>+5.2% 环比</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+                    <!-- 设备运行报表 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">设备运行时长统计（Top 10）</h3>
+                        <div id="barChart" style="height:300px;"></div>
+                    </div>
+                    <!-- 维护成本分析 -->
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">维护成本月度趋势</h3>
+                        <div id="costChart" style="height:300px;"></div>
+                    </div>
+                </div>
+                <!-- 故障类型分布 -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div class="bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">故障类型分布</h3>
+                        <div id="faultPieChart" style="height:250px;"></div>
+                    </div>
+                    <div class="xl:col-span-2 bg-white rounded-xl p-5 border border-gray-100">
+                        <h3 class="font-semibold text-gray-700 mb-4">各区域设备效率对比</h3>
+                        <div id="radarChart" style="height:250px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 用户管理页面 ==================== -->
+            <div x-show="currentPage==='user-manage'" class="page-transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <button class="bg-primary-500 hover:bg-primary-600 text-white py-2 px-4 rounded-lg text-sm"><i class="fas fa-plus mr-1"></i>新增用户</button>
+                        <button class="border border-gray-200 text-gray-500 py-2 px-4 rounded-lg text-sm hover:bg-gray-50"><i class="fas fa-file-import mr-1"></i>批量导入</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部角色</option><option>超级管理员</option><option>系统管理员</option><option>设备管理员</option><option>维护人员</option><option>普通员工</option></select>
+                        <select class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"><option>全部状态</option><option>启用</option><option>禁用</option></select>
+                        <input type="text" placeholder="搜索用户..." class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-48">
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    <table class="w-full data-table">
+                        <thead>
+                            <tr class="border-b border-gray-100">
+                                <th class="py-3 px-4 text-left"><input type="checkbox" class="rounded border-gray-300"></th>
+                                <th class="py-3 px-4 text-left">用户</th>
+                                <th class="py-3 px-4 text-left">工号</th>
+                                <th class="py-3 px-4 text-left">部门</th>
+                                <th class="py-3 px-4 text-left">角色</th>
+                                <th class="py-3 px-4 text-left">手机号</th>
+                                <th class="py-3 px-4 text-left">状态</th>
+                                <th class="py-3 px-4 text-left">最后登录</th>
+                                <th class="py-3 px-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                <td class="py-3 px-4"><div class="flex items-center"><div class="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center text-white text-xs font-bold mr-3">张</div><div><div class="text-sm font-medium text-gray-700">张明远</div><div class="text-xs text-gray-400">admin@emspro.com</div></div></div></td>
+                                <td class="py-3 px-4 text-gray-500 font-mono">EMP001</td>
+                                <td class="py-3 px-4 text-gray-500">信息技术部</td>
+                                <td class="py-3 px-4"><span class="tag bg-purple-50 text-purple-600">超级管理员</span></td>
+                                <td class="py-3 px-4 text-gray-500">138****8001</td>
+                                <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600">启用</span></td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-07 14:30</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-edit"></i></button>
+                                    <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-ban"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-key"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                <td class="py-3 px-4"><div class="flex items-center"><div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold mr-3">李</div><div><div class="text-sm font-medium text-gray-700">李伟强</div><div class="text-xs text-gray-400">liwq@emspro.com</div></div></div></td>
+                                <td class="py-3 px-4 text-gray-500 font-mono">EMP015</td>
+                                <td class="py-3 px-4 text-gray-500">设备管理部</td>
+                                <td class="py-3 px-4"><span class="tag bg-blue-50 text-blue-600">设备管理员</span></td>
+                                <td class="py-3 px-4 text-gray-500">139****6523</td>
+                                <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600">启用</span></td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-07 13:45</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-edit"></i></button>
+                                    <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-ban"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-key"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                <td class="py-3 px-4"><div class="flex items-center"><div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold mr-3">陈</div><div><div class="text-sm font-medium text-gray-700">陈志明</div><div class="text-xs text-gray-400">chenzm@emspro.com</div></div></div></td>
+                                <td class="py-3 px-4 text-gray-500 font-mono">EMP023</td>
+                                <td class="py-3 px-4 text-gray-500">设备管理部</td>
+                                <td class="py-3 px-4"><span class="tag bg-green-50 text-green-600">维护人员</span></td>
+                                <td class="py-3 px-4 text-gray-500">137****4521</td>
+                                <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600">启用</span></td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-07 10:20</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-edit"></i></button>
+                                    <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-ban"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-key"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                <td class="py-3 px-4"><div class="flex items-center"><div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold mr-3">赵</div><div><div class="text-sm font-medium text-gray-700">赵鹏飞</div><div class="text-xs text-gray-400">zhaopf@emspro.com</div></div></div></td>
+                                <td class="py-3 px-4 text-gray-500 font-mono">EMP031</td>
+                                <td class="py-3 px-4 text-gray-500">生产部</td>
+                                <td class="py-3 px-4"><span class="tag bg-green-50 text-green-600">维护人员</span></td>
+                                <td class="py-3 px-4 text-gray-500">136****7890</td>
+                                <td class="py-3 px-4"><span class="badge bg-success-50 text-success-600">启用</span></td>
+                                <td class="py-3 px-4 text-gray-400">2026-03-06 17:30</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-edit"></i></button>
+                                    <button class="text-gray-400 hover:text-danger-500 mx-1"><i class="fas fa-ban"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-key"></i></button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-gray-50">
+                                <td class="py-3 px-4"><input type="checkbox" class="rounded border-gray-300"></td>
+                                <td class="py-3 px-4"><div class="flex items-center"><div class="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs font-bold mr-3">周</div><div><div class="text-sm font-medium text-gray-400">周小燕</div><div class="text-xs text-gray-300">zhouxy@emspro.com</div></div></div></td>
+                                <td class="py-3 px-4 text-gray-400 font-mono">EMP045</td>
+                                <td class="py-3 px-4 text-gray-400">质检部</td>
+                                <td class="py-3 px-4"><span class="tag bg-gray-100 text-gray-500">普通员工</span></td>
+                                <td class="py-3 px-4 text-gray-400">135****2345</td>
+                                <td class="py-3 px-4"><span class="badge bg-gray-100 text-gray-500">禁用</span></td>
+                                <td class="py-3 px-4 text-gray-400">2026-01-15 09:00</td>
+                                <td class="py-3 px-4 text-center">
+                                    <button class="text-primary-500 hover:text-primary-600 mx-1"><i class="fas fa-edit"></i></button>
+                                    <button class="text-gray-400 hover:text-success-500 mx-1"><i class="fas fa-check-circle"></i></button>
+                                    <button class="text-gray-400 hover:text-primary-500 mx-1"><i class="fas fa-key"></i></button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+                        <span class="text-sm text-gray-400">显示 1-5 / 共 86 条</span>
+                        <div class="flex items-center space-x-1">
+                            <button class="w-8 h-8 bg-primary-500 text-white rounded flex items-center justify-center text-sm">1</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">2</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-sm text-gray-500 hover:bg-gray-50">3</button>
+                            <button class="w-8 h-8 border border-gray-200 rounded flex items-center justify-center text-gray-400"><i class="fas fa-chevron-right text-xs"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 角色权限页面 ==================== -->
+            <div x-show="currentPage==='role-permission'" class="page-transition">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <!-- 角色列表 -->
+                    <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <h3 class="font-semibold text-gray-700">角色列表</h3>
+                            <button class="text-primary-500 text-sm hover:text-primary-600"><i class="fas fa-plus mr-1"></i>新增</button>
+                        </div>
+                        <div class="divide-y divide-gray-50">
+                            <div class="p-4 bg-primary-50 border-l-3 border-primary-500 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-shield-alt text-primary-500 mr-2"></i><span class="text-sm font-medium text-primary-600">超级管理员</span></div>
+                                    <span class="text-xs text-gray-400">2 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">拥有系统全部权限</p>
+                            </div>
+                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-user-shield text-blue-500 mr-2"></i><span class="text-sm font-medium text-gray-700">系统管理员</span></div>
+                                    <span class="text-xs text-gray-400">3 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">系统配置与用户管理</p>
+                            </div>
+                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-cogs text-green-500 mr-2"></i><span class="text-sm font-medium text-gray-700">设备管理员</span></div>
+                                    <span class="text-xs text-gray-400">8 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">设备全生命周期管理</p>
+                            </div>
+                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-wrench text-orange-500 mr-2"></i><span class="text-sm font-medium text-gray-700">维护人员</span></div>
+                                    <span class="text-xs text-gray-400">24 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">维护工单执行与反馈</p>
+                            </div>
+                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-user text-gray-500 mr-2"></i><span class="text-sm font-medium text-gray-700">普通员工</span></div>
+                                    <span class="text-xs text-gray-400">45 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">设备查看与报修</p>
+                            </div>
+                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center"><i class="fas fa-eye text-gray-400 mr-2"></i><span class="text-sm font-medium text-gray-700">访客</span></div>
+                                    <span class="text-xs text-gray-400">4 人</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">仅查看公开信息</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 权限配置 -->
+                    <div class="xl:col-span-2 bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold text-gray-700">超级管理员 - 权限配置</h3>
+                                <p class="text-xs text-gray-400 mt-1">当前角色拥有 56/56 项权限</p>
+                            </div>
+                            <button class="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600"><i class="fas fa-save mr-1"></i>保存</button>
+                        </div>
+                        <div class="p-5 space-y-5 max-h-96 overflow-y-auto custom-scrollbar">
+                            <!-- 设备管理权限 -->
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-gray-600"><i class="fas fa-server text-primary-500 mr-2"></i>设备管理</h4>
+                                    <label class="flex items-center text-xs text-gray-400"><input type="checkbox" checked class="rounded border-gray-300 mr-1">全选</label>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">查看设备</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">新增设备</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">编辑设备</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">删除设备</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">导入导出</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">设备报废</span></label>
+                                </div>
+                            </div>
+                            <!-- 维护管理权限 -->
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-gray-600"><i class="fas fa-tools text-green-500 mr-2"></i>维护管理</h4>
+                                    <label class="flex items-center text-xs text-gray-400"><input type="checkbox" checked class="rounded border-gray-300 mr-1">全选</label>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">查看计划</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">创建计划</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">创建工单</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">派发工单</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">验收工单</span></label>
+                                </div>
+                            </div>
+                            <!-- 系统管理权限 -->
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-gray-600"><i class="fas fa-cog text-orange-500 mr-2"></i>系统管理</h4>
+                                    <label class="flex items-center text-xs text-gray-400"><input type="checkbox" checked class="rounded border-gray-300 mr-1">全选</label>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">用户管理</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">角色管理</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">系统设置</span></label>
+                                    <label class="flex items-center p-2 bg-gray-50 rounded-lg text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-600">操作日志</span></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 系统设置页面 ==================== -->
+            <div x-show="currentPage==='system-settings'" class="page-transition">
+                <div class="grid grid-cols-1 xl:grid-cols-4 gap-5">
+                    <!-- 左侧设置菜单 -->
+                    <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div class="p-4 border-b border-gray-100"><h3 class="font-semibold text-gray-700">设置项</h3></div>
+                        <div class="divide-y divide-gray-50">
+                            <div class="p-3 bg-primary-50 text-primary-500 text-sm cursor-pointer flex items-center"><i class="fas fa-building mr-3 w-4 text-center"></i>企业信息</div>
+                            <div class="p-3 text-gray-500 text-sm cursor-pointer hover:bg-gray-50 flex items-center"><i class="fas fa-bell mr-3 w-4 text-center"></i>通知设置</div>
+                            <div class="p-3 text-gray-500 text-sm cursor-pointer hover:bg-gray-50 flex items-center"><i class="fas fa-exclamation-triangle mr-3 w-4 text-center"></i>告警规则</div>
+                            <div class="p-3 text-gray-500 text-sm cursor-pointer hover:bg-gray-50 flex items-center"><i class="fas fa-database mr-3 w-4 text-center"></i>数据备份</div>
+                            <div class="p-3 text-gray-500 text-sm cursor-pointer hover:bg-gray-50 flex items-center"><i class="fas fa-plug mr-3 w-4 text-center"></i>接口管理</div>
+                            <div class="p-3 text-gray-500 text-sm cursor-pointer hover:bg-gray-50 flex items-center"><i class="fas fa-history mr-3 w-4 text-center"></i>操作日志</div>
+                        </div>
+                    </div>
+                    <!-- 右侧设置内容 -->
+                    <div class="xl:col-span-3 space-y-5">
+                        <div class="bg-white rounded-xl p-6 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-5">企业信息</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">企业名称</label>
+                                    <input type="text" value="智造科技有限公司" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">统一社会信用代码</label>
+                                    <input type="text" value="91310000MA1FL8XXXX" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">联系电话</label>
+                                    <input type="text" value="021-6888XXXX" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-1.5">企业邮箱</label>
+                                    <input type="text" value="admin@smartmfg.com" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm text-gray-500 mb-1.5">企业地址</label>
+                                    <input type="text" value="上海市浦东新区张江高科技园区XX路XXX号" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                </div>
+                            </div>
+                            <div class="flex justify-end mt-5">
+                                <button class="px-6 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600"><i class="fas fa-save mr-1"></i>保存设置</button>
+                            </div>
+                        </div>
+                        <!-- 系统参数 -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-5">系统参数</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">自动备份</div><div class="text-xs text-gray-400">每日凌晨2:00自动备份数据库</div></div>
+                                    <div class="w-12 h-6 bg-primary-500 rounded-full relative cursor-pointer"><div class="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow"></div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">登录双因素认证</div><div class="text-xs text-gray-400">登录时需要短信验证码二次确认</div></div>
+                                    <div class="w-12 h-6 bg-gray-300 rounded-full relative cursor-pointer"><div class="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5 shadow"></div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">告警邮件通知</div><div class="text-xs text-gray-400">紧急告警自动发送邮件给相关负责人</div></div>
+                                    <div class="w-12 h-6 bg-primary-500 rounded-full relative cursor-pointer"><div class="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5 shadow"></div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div><div class="text-sm text-gray-700">操作日志保留</div><div class="text-xs text-gray-400">超过保留期限的日志自动清理</div></div>
+                                    <select class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white"><option>90天</option><option>180天</option><option selected>365天</option><option>永久</option></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 个人中心页面 ==================== -->
+            <div x-show="currentPage==='profile'" class="page-transition">
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <!-- 个人信息卡片 -->
+                    <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div class="bg-gradient-to-r from-primary-500 to-blue-600 p-6 text-center">
+                            <div class="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center text-2xl font-bold text-primary-500 shadow-lg">张</div>
+                            <h3 class="text-white font-bold text-lg mt-3">张明远</h3>
+                            <p class="text-blue-100 text-sm">超级管理员 · 信息技术部</p>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <div class="flex items-center text-sm"><i class="fas fa-id-badge text-gray-400 w-6"></i><span class="text-gray-500 w-16">工号</span><span class="text-gray-700">EMP001</span></div>
+                            <div class="flex items-center text-sm"><i class="fas fa-envelope text-gray-400 w-6"></i><span class="text-gray-500 w-16">邮箱</span><span class="text-gray-700">admin@emspro.com</span></div>
+                            <div class="flex items-center text-sm"><i class="fas fa-phone text-gray-400 w-6"></i><span class="text-gray-500 w-16">手机</span><span class="text-gray-700">138****8001</span></div>
+                            <div class="flex items-center text-sm"><i class="fas fa-calendar text-gray-400 w-6"></i><span class="text-gray-500 w-16">入职</span><span class="text-gray-700">2020-03-15</span></div>
+                        </div>
+                        <div class="px-5 pb-5">
+                            <button class="w-full py-2 border border-primary-200 text-primary-500 rounded-lg text-sm hover:bg-primary-50"><i class="fas fa-edit mr-1"></i>编辑资料</button>
+                        </div>
+                    </div>
+                    <!-- 右侧内容 -->
+                    <div class="xl:col-span-2 space-y-5">
+                        <!-- 安全设置 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-shield-alt text-primary-500 mr-2"></i>安全设置</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center"><i class="fas fa-lock text-gray-400 mr-3"></i><div><div class="text-sm text-gray-700">登录密码</div><div class="text-xs text-gray-400">上次修改：2026-01-15</div></div></div>
+                                    <button class="text-sm text-primary-500 hover:text-primary-600">修改</button>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center"><i class="fas fa-mobile-alt text-gray-400 mr-3"></i><div><div class="text-sm text-gray-700">手机绑定</div><div class="text-xs text-gray-400">已绑定：138****8001</div></div></div>
+                                    <button class="text-sm text-primary-500 hover:text-primary-600">更换</button>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center"><i class="fas fa-envelope text-gray-400 mr-3"></i><div><div class="text-sm text-gray-700">邮箱绑定</div><div class="text-xs text-gray-400">已绑定：admin@emspro.com</div></div></div>
+                                    <button class="text-sm text-primary-500 hover:text-primary-600">更换</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 登录记录 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-history text-warning-500 mr-2"></i>最近登录</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between p-2 text-sm">
+                                    <div class="flex items-center"><i class="fas fa-desktop text-gray-400 mr-3"></i><span class="text-gray-700">Chrome · Windows 11</span></div>
+                                    <div class="text-right"><div class="text-gray-500">上海市浦东新区</div><div class="text-xs text-gray-400">2026-03-07 14:30</div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-2 text-sm">
+                                    <div class="flex items-center"><i class="fas fa-mobile-alt text-gray-400 mr-3"></i><span class="text-gray-700">飞书 · iOS 18</span></div>
+                                    <div class="text-right"><div class="text-gray-500">上海市浦东新区</div><div class="text-xs text-gray-400">2026-03-07 08:15</div></div>
+                                </div>
+                                <div class="flex items-center justify-between p-2 text-sm">
+                                    <div class="flex items-center"><i class="fas fa-desktop text-gray-400 mr-3"></i><span class="text-gray-700">Chrome · macOS 15</span></div>
+                                    <div class="text-right"><div class="text-gray-500">上海市浦东新区</div><div class="text-xs text-gray-400">2026-03-06 17:45</div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 通知偏好 -->
+                        <div class="bg-white rounded-xl p-5 border border-gray-100">
+                            <h3 class="font-semibold text-gray-700 mb-4"><i class="fas fa-bell text-info-500 mr-2"></i>通知偏好</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <span class="text-sm text-gray-700">紧急告警通知</span>
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">站内信</label>
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">邮件</label>
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">短信</label>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <span class="text-sm text-gray-700">工单状态变更</span>
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">站内信</label>
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">邮件</label>
+                                        <label class="flex items-center"><input type="checkbox" class="rounded border-gray-300 mr-1">短信</label>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                    <span class="text-sm text-gray-700">系统公告</span>
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <label class="flex items-center"><input type="checkbox" checked class="rounded border-gray-300 mr-1">站内信</label>
+                                        <label class="flex items-center"><input type="checkbox" class="rounded border-gray-300 mr-1">邮件</label>
+                                        <label class="flex items-center"><input type="checkbox" class="rounded border-gray-300 mr-1">短信</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 消息通知页面 ==================== -->
+            <div x-show="currentPage==='notification'" class="page-transition">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <button class="px-3 py-1.5 bg-primary-50 text-primary-500 rounded-lg text-sm">全部 <span class="ml-1 bg-primary-500 text-white text-xs px-1.5 py-0.5 rounded-full">12</span></button>
+                        <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">未读 <span class="ml-1 bg-danger-500 text-white text-xs px-1.5 py-0.5 rounded-full">5</span></button>
+                        <button class="px-3 py-1.5 text-gray-400 hover:bg-gray-50 rounded-lg text-sm">已读</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button class="text-sm text-primary-500 hover:text-primary-600"><i class="fas fa-check-double mr-1"></i>全部已读</button>
+                        <button class="text-sm text-gray-400 hover:text-danger-500"><i class="fas fa-trash mr-1"></i>清空已读</button>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <!-- 未读消息 -->
+                    class="bg-white rounded-xl p-4 border border-primary-100 border-l-4 border-l-danger-500 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="w-10 h-10 bg-danger-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-exclamation-circle text-danger-500"></i></div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-semibold text-gray-700">紧急告警-A003 主轴温度异常</h4>
+                                    <span class="text-xs text-gray-400">3 分钟前</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">CNC-A003 主轴温度已达78°C，超过安全阈值55°C。已自动创建工单 WO-20260307-001，请及时处理。</p>
+                                <div class="flex items-center mt-2 space-x-3">
+                                    <button class="text-xs text-primary-500 hover:text-primary-600">查看详情</button>
+                                    <button class="text-xs text-gray-400 hover:text-gray-500">标为已读</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-primary-100 border-l-4 border-l-warning-500 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="w-10 h-10 bg-warning-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-clipboard-list text-warning-500"></i></div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-semibold text-gray-700">工单派发：PLC-B012 通信模块更换</h4>
+                                    <span class="text-xs text-gray-400">15 分钟前</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">工单 WO-20260307-002 已创建，等待派发给维护人员。请尽快安排处理。</p>
+                                <div class="flex items-center mt-2 space-x-3">
+                                    <button class="text-xs text-primary-500 hover:text-primary-600">查看工单</button>
+                                    <button class="text-xs text-gray-400 hover:text-gray-500">标为已读</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-primary-100 border-l-4 border-l-info-500 hover:shadow-md transition-shadow cursor-pointer">
+                        <div class="flex items-start">
+                            <div class="w-10 h-10 bg-info-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-calendar-check text-info-500"></i></div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-semibold text-gray-700">维护提醒：ROBOT-D008 保养周期即将到期</h4>
+                                    <span class="text-xs text-gray-400">1 小时前</span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">ROBOT-D008 距下次保养周期还有 3 天，请提前安排维护计划。</p>
+                                <div class="flex items-center mt-2 space-x-3">
+                                    <button class="text-xs text-primary-500 hover:text-primary-600">创建计划</button>
+                                    <button class="text-xs text-gray-400 hover:text-gray-500">标为已读</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 已读消息 -->
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer opacity-70">
+                        <div class="flex items-start">
+                            <div class="w-10 h-10 bg-success-50 rounded-lg flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-check-circle text-success-500"></i></div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-medium text-gray-500">工单完成：AGV-C005 电池更换</h4>
+                                    <span class="text-xs text-gray-400">昨天 16:30</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">工单 WO-20260305-008 已由刘晓东完成，验收通过。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow cursor-pointer opacity-70">
+                        <div class="flex items-start">
+                            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-bullhorn text-gray-400"></i></div>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-medium text-gray-500">系统公告：v3.2.0 版本更新</h4>
+                                    <span class="text-xs text-gray-400">3 天前</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-1">系统已升级至 v3.2.0，新增设备二维码管理、批量导入优化等功能。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== 注册页面 ==================== -->
+            <div x-show="currentPage==='register'" class="page-transition">
+                <div class="min-h-screen flex items-center justify-center bg-gray-50 -m-6 p-6">
+                    <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
+                        <div class="text-center mb-6">
+                            <div class="w-12 h-12 bg-primary-500 rounded-xl mx-auto flex items-center justify-center mb-3"><i class="fas fa-cogs text-white text-xl"></i></div>
+                            <h2 class="text-xl font-bold text-gray-700">注册账号</h2>
+                            <p class="text-sm text-gray-400 mt-1">创建您的设备管理系统账号</p>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="block text-sm text-gray-500 mb-1">姓名 <span class="text-danger-500">*</span></label><input type="text" placeholder="真实姓名" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                                <div><label class="block text-sm text-gray-500 mb-1">工号 <span class="text-danger-500">*</span></label><input type="text" placeholder="员工工号" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                            </div>
+                            <div><label class="block text-sm text-gray-500 mb-1">手机号 <span class="text-danger-500">*</span></label><input type="tel" placeholder="请输入手机号" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                            <div><label class="block text-sm text-gray-500 mb-1">邮箱 <span class="text-danger-500">*</span></label><input type="email" placeholder="请输入邮箱" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                            <div><label class="block text-sm text-gray-500 mb-1">所属部门</label>
+                                <select class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"><option value="">请选择部门</option><option>生产部</option><option>设备管理部</option><option>质检部</option><option>仓储部</option><option>信息技术部</option></select>
+                            </div>
+                            <div><label class="block text-sm text-gray-500 mb-1">密码 <span class="text-danger-500">*</span></label><input type="password" placeholder="至少8位，含字母和数字" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                            <div><label class="block text-sm text-gray-500 mb-1">确认密码 <span class="text-danger-500">*</span></label><input type="password" placeholder="再次输入密码" class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div>
+                            <label class="flex items-start text-sm"><input type="checkbox" class="rounded border-gray-300 mt-0.5 mr-2"><span class="text-gray-500">我已阅读并同意 <a href="#" class="text-primary-500">《用户协议》</a> 和 <a href="#" class="text-primary-500">《隐私政策》</a></span></label>
+                            <button class="w-full py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">注 册</button>
+                            <p class="text-center text-sm text-gray-400">已有账号？<a href="#" class="text-primary-500" @click.prevent="currentPage='login';isLoggedIn=false">立即登录</a></p>
+                        </div>           </div>
+                </div>
+            </div>
+
+        </main>
+        <!-- ===== 内容区结束 ===== -->
+    </div>
+    <!-- ===== 主布局结束 ===== -->
+</div>
+<!-- ===== 登录页（独立于主布局） ===== -->
+<div x-show="currentPage==='login' && !isLoggedIn" class="min-h-screen flex">
+    <!-- 左侧品牌区 -->
+    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary-600 via-blue-600 to-indigo-700 items-center justify-center p-12 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10"><div class="absolute top-20 left-20 w-40 h-40 border border-white rounded-full"></div><div class="absolute bottom-32 right-0 h-60 border border-white rounded-full"></div><div class="absolute top-1/2 left-1/3 w-20 h-20 border border-white rounded-full"></div></div>
+        <div class="relative z-10 text-center">
+            <div class="w-20 h-20 bg-white/20 rounded-2xl mx-auto flex items-center justify-center mb-6 backdrop-blur-sm"><i class="fas fa-cogs text-white text-3xl"></i></div>
+            <h1 class="text-3xl font-bold text-white mb-3">设备管理系统</h1>
+            <p class="text-blue-100 text-lg mb-2">Equipment Management System</p>
+            <p class="text-blue-200 text-sm max-w-sm mx-auto">智能化设备全生命周期管理平台，助力企业数字化转型</p>
+            <div class="flex items-center justify-center space-x-8 mt-10 text-blue-100 text-sm">
+                <div class="text-center"><div class="text-2xl font-bold text-white">2,847</div><div>设备接入</div></div>
+                <div class="text-center"><div class="text-2xl font-bold text-white">96.8%</div><div>在线率</div></div>
+                <div class="text-center"><div class="text-2xl font-bold text-white">99.9%</div><div>系统可用</div></div>
+            </div>
+        </div>
+    </div>
+    <!-- 右侧登录表单 -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+        <div class="w-full max-w-md">
+            <div class="lg:hidden text-center mb-8">
+                <div class="w-12 h-12 bg-primary-500 rounded-xl mx-auto flex items-center justify-center mb-3"><i class="fas fa-cogs text-white text-xl"></i></div>
+                <h2 class="text-xl font-bold text-gray-700">设备管理系统</h2>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-700 mb-1">欢迎回来</h2>
+            <p class="text-gray-400 mb-8">请登录您的账号</p>
+            <div class="space-y-5">
+                <div><label class="block text-sm text-gray-500 mb-1.5">账号</label><div class="relative"><i class="fas fa-user absolute left-3 top-3 text-gray-300"></i><input type="text" placeholder="用户名 / 手机号 / 邮箱" value="admin" class="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></div></div>
+                <div><label class="block text-sm text-gray-500 mb-1.5">密码</label><div class="relative"><i class="fas fa-lock absolute left-3 top-3 text-gray-300"></i><input type="password" placeholder="请输入密码" value="••••••••" class="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"><button class="absolute right-3 top-3 text-gray-300 hover:text-gray-500"><i class="fas fa-eye"></i></button></div></div>
+                <div class="flex items-center justify-between"><label class="flex items-center text-sm"><input type="checkbox" checked class="rounded border-gray-300 mr-2"><span class="text-gray-500">记住我</span></label><a href="#" class="text-sm text-primary-500 hover:text-primary-600">忘记密码？</a></div>
+                <button class="w-full py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors" @click="isLoggedIn=true;currentPage='dashboard'">登 录</button>
+                <div class="relative my-4"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></d/div><div class="relative flex justify-center text-xs"><span class="bg-gray-50 px-3 text-gray-400">其他登录方式</span></div></div>
+                <div class="flex items-center justify-center space-x-4">
+                    <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors"><i class="fab fa-weixin text-green-500"></i></button>
+                    <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors"><i class="fab fa-qq text-blue-500"></i></button>
+                    <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors"><i class="fas fa-mobile-alt text-gray-500"></i></button>
+                </div>
+                <p class="text-center text-sm text-gray-400 mt-4">还没有账号？<a href="#" class="text-primary-500" @click.prevent="currentPage='register'">立即注册</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Alpine.js 应用逻辑 + ECharts ===== -->
+<script>
+function app() {
+    return {
+        isLoggedIn: false,
+        currentPage: 'login',
+        sidebarCollapsed: false,
+        openTabs: [{name:'工作台', page:'dashboard', closable:false}],
+        menuGroups: [
+            {label:'概览', items:[{name:'工作台', icon:'fas fa-tachometer-alt', page:'dashboard'}]},
+            {label:'设备管理', items:[
+                {name:'设备列表', icon:'fas fa-server', page:'equipment-list'},
+                {name:'设备详情', icon:'fas fa-info-circle', page:'equipment-detail'},
+                {name:'新增设备', icon:'fas fa-plus-circle', page:'equipment-form'}
+            ]},
+            {label:'维护管理', items:[
+                {name:'维护计划', icon:'fas fa-calendar-check', page:'maintenance-plan'},
+                {name:'工单管理', icon:'fas fa-clipboard-list', page:'work-order'},
+                {name:'工单详情', icon:'fas fa-file-alt', page:'work-order-detail'}
+            ]},
+            {label:'监控预警', items:[{name:'告警中心', icon:'fas fa-bell', page:'alarm'}]},
+            {label:'数据分析', items:[{name:'报表统计', icon:'fas fa-chart-bar', page:'report'}]},
+            {label:'系统管理', items:[
+                {name:'用户管理', icon:'fas fa-users', page:'user-manage'},
+                {name:'角色权限', icon:'fas fa-user-shield', page:'role-permission'},
+                {name:'系统设置', icon:'fas fa-cog', page:'system-settings'}
+            ]},
+            {label:'个人', items:[
+                {name:'个人中心', icon:'fas fa-user-circle', page:'profile'},
+                {name:'消息通知', icon:'fas fa-envelope', page:'notification'}
+            ]}
+        ],
+        navigate(page) {
+            this.currentPage = page;
+            const menuItem = this.menuGroups.flatMap(g => g.items).find(i => i.page === page);
+            if (menuItem) {
+                const exists = this.openTabs.find(t => t.page === page);
+                if (!exists) {
+                    this.openTabs.push({name: menuItem.name, page: page, closable: true});
+                }
+            }
+            this.$nextTick(() => this.initCharts());
+        },
+        closeTab(page) {
+            const idx = this.openTabs.findIndex(t => t.page === page);
+            if (idx > -1) {
+                this.openTabs.splice(idx, 1);
+                if (this.currentPage === page) {
+                    const prev = this.openTabs[Math.min(idx, this.openTabs.length - 1)];
+                    this.currentPage = prev ? prev.page : 'dashboard';
+                }
+            }
+        },
+        initCharts() {
+            this.$nextTick(() => {
+                // Dashboard 趋势图
+                const trendEl = document.getElementById('trendChart');
+                if (trendEl && trendEl.offsetParent !== null) {
+                    const tc = echarts.init(trendEl);
+                    tc.setOption({
+                        tooltip:{trigger:'axis'},
+                        legend:{data:['运行设备','维护设备'],top:0,textStyle:{fontSize:11}},
+                        grid:{left:'3%',right:'4%',bottom:'3%',top:'40px',containLabel:true},
+                        xAxis:{type:'category',data:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],axisLine:{lineStyle:{color:'#e5e7eb'}},axisLabel:{color:'#9ca3af',fontSize:11}},
+                        yAxis:{type:'value',axisLine:{show:false},splitLine:{lineStyle:{color:'#f3f4f6'}},axisLabel:{color:'#9ca3af',fontSize:11}},
+                        series:[
+                            {name:'运行设备',type:'line',smooth:true,data:[2680,2700,2720,2750,2780,2790,2800,2810,2820,2830,2840,2847],itemStyle:{color:'#1890FF'},areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(24,144,255,0.15)'},{offset:1,color:'rgba(24,144,255,0)'}]}}},
+                            {name:'故障设备',type:'line',smooth:true,data:[35,28,42,30,25,38,22,18,28,20,15,34],itemStyle:{color:'#ff4d4f'}},
+                            {name:'维护设备',type:'line',smooth:true,data:[120,135,110,145,130,125,140,155,148,160,150,156],itemStyle:{color:'#faad14'}}
+                        ]
+                    });
+                    window.addEventListener('resize', () => tc.resize());
+                }
+                // Dashboard 饼图
+                const pieEl = document.getElementById('pieChart');
+                if (pieEl && pieEl.offsetParent !== null) {
+                    const pc = echarts.init(pieEl);
+                    pc.setOption({
+                        tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)'},
+                        legend:{orient:'vertical',right:'5%',top:'center',textStyle:{fontSize:11}},
+                        series:[{type:'pie',radius:['40%','70%'],center:['35%','50%'],avoidLabelOverlap:false,label:{show:false},emphasis:{label:{show:true,fontSize:14,fontWeight:'bold'}},
+                            data:[{value:486,name:'数控机床',itemStyle:{color:'#1890FF'}},{value:324,name:'工业机器人',itemStyle:{color:'#36cfc9'}},{value:215,name:'AGV小车',itemStyle:{color:'#faad14'}},{value:892,name:'PLC控制器',itemStyle:{color:'#722ed1'}},{value:186,name:'检测设备',itemStyle:{color:'#13c2c2'}},{value:744,name:'其他设备',itemStyle:{color:'#9ca3af'}}]
+                        }]
+                    });
+                    window.addEventListener('resize', () => pc.resize());
+                }
+                // 报表-柱状图
+                const barEl = document.getElementById('barChart');
+                if (barEl && barEl.offsetParent !== null) {
+                    const bc = echarts.init(barEl);
+                    bc.setOption({
+                        tooltip:{trigger:'axis'},
+                        grid:{left:'3%',right:'4%',bottom:'3%',top:'15px',containLabel:true},
+                        xAxis:{type:'value',axisLabel:{color:'#9ca3af',fontSize:11},splitLine:{lineStyle:{color:'#f3f4f6'}}},
+                        yAxis:{type:'category',data:['CNC-A001','ROBOT-B001','CNC-A002','AGV-C001','PLC-B012','ROBOT-B003','CNC-A003','AGV-C005','ROBOT-D008','PLC-B015'].reverse(),axisLabel:{color:'#6b7280',fontSize:11},axisLine:{lineStyle:{color:'#e5e7eb'}}},
+                        series:[{type:'bar',data:[680,645,620,590,575,560,540,520,510,490].reverse(),itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#1890FF'},{offset:1,color:'#36cfc9'}]}},barWidth:16,borderRadius:[0,4,4,0]}]
+                    });
+                    window.addEventListener('resize', () => bc.resize());
+                }
+                // 报表-成本趋势
+                const costEl = document.getElementById('costChart');
+                if (costEl && costEl.offsetParent !== null) {
+                    const cc = echarts.init(costEl);
+                    cc.setOption({
+                        tooltip:{trigger:'axis'},
+                        legend:{data:['人工成本','备件成本','外包成本'],top:0,textStyle:{fontSize:11}},
+                        grid:{left:'3%',right:'4%',bottom:'3%',top:'40px',containLabel:true},
+                        xAxis:{type:'category',data:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],axisLine:{lineStyle:{color:'#e5e7eb'}},axisLabel:{color:'#9ca3af',fontSize:11}},
+                        yAxis:{type:'value',name:'万元',axisLine:{show:false},splitLine:{lineStyle:{color:'#f3f4f6'}},axisLabel:{color:'#9ca3af',fontSize:11}},
+                        series:[
+                            {name:'人工成本',type:'bar',stack:'cost',data:[8.5,7.2,9.1,8.5,8.2,9.5,8.0,7.8,8.6,9.2,8.4],itemStyle:{color:'#1890FF'},barWidth:20},
+                            {name:'备件成本',type:'bar',stack:'cost',data:[12.3,10.5,14.2,11.8,13.5,12.0,15.1,11.2,13.8,12.5,14.0,13.2],itemStyle:{color:'#36cfc9'}},
+                            {name:'外包成本',type:'bar',stack:'cost',data:[5.2,4.8,6.1,5.5,4.2,5.8,6.5,4.5,5.0,5.3,6.2,5.8],itemStyle:{color:'#faad14'}}
+                        ]
+                    });
+                    window.addEventListener('resize', () => cc.resize());
+                }
+                // 报表-故障饼图
+                const faultEl = document.getElementById('faultPieChart');
+          if (faultEl && faultEl.offsetParent !== null) {
+                    const fc = echarts.init(faultEl);
+                    fc.setOption({
+                        tooltip:{trigger:'item',formatter:'{b}: {c}次 ({d}%)'},
+                        series:[{type:'pie',radius:['35%','65%'],
+                            data:[{value:45,name:'机械故障',itemStyle:{color:'#ff4d4f'}},{value:32,name:'电气故障',itemStyle:{color:'#faad14'}},{value:28,name:'软件故障',itemStyle:{color:'#1890FF'}},{value:18,name:'传感器故障',itemStyle:{color:'#722ed1'},{value:12,name:'其他',itemStyle:{color:'#9ca3af'}}],
+                            label:{fontSize:11}
+                        }]
+                    });
+                    window.addEventListener('resize', () => fc.resize());
+                }
+                // 报表-雷达图
+                const radarEl = document.getElementById('radarChart');
+                if (radarEl && radarEl.offsetParent !== null) {
+                    const rc = echarts.init(radarEl);
+                    rc.setOption({
+                        tooltip:{},
+                        legend:{data:['A区','B区','C区','D区','E区'],top:0,textStyle:{fontSize:11}},
+                        radar:{indicator:[{name:'OEE',max:100},{name:'可用率',max:100},{name:'性能率',max:100},{name:'合格率',max:100},{name:'MTBF(h)',max:1000},{name:'MTTR(h)',max:10}],center:['50%','55%'],radius:'60%'},
+                        series:[{type:'radar',data:[
+                            {value:[92,95,94,98,850,3.2],name:'A区',lineStyle:{color:'#1890FF'},itemStyle:{color:'#1890FF'}},
+                            {value:[88,92,90,96,720,4.5],name:'B区',lineStyle:{color:'#36cfc9'},itemStyle:{color:'#36cfc9'}},
+                            {value:[85,90,88,95,680,5.0],name:'C区',lineStyle:{color:'#faad14'},itemStyle:{color:'#faad14'}},
+                            {value:[82,88,86,94,650,5.5],name:'D区',lineStyle:{color:'#722ed1'},itemStyle:{color:'#722ed1'}},
+                            {value:[90,93,92,97,780,3.8],name:'E区',lineStyle:{color:'#13c2c2'},itemStyle:{color:'#13c2c2'}}
+                        ]}]
+                    });
+                    window.addEventListener('resize', () => rc.resize());
+                }
+            });
+        },
+        init() {
+            this.$watch('currentPage', () => { this.initCharts(); });
+        }
+    }
+}
+</script>
+</body>
+</html>
